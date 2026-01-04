@@ -123,52 +123,77 @@ struct ContentView: View {
 private struct HeaderCard: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
+            // Fondo degradado con matices cálidos y fríos
             LinearGradient(
                 colors: [
-                    Color(red: 0.16, green: 0.18, blue: 0.22),
-                    Color(red: 0.22, green: 0.20, blue: 0.18),
-                    Color(red: 0.35, green: 0.27, blue: 0.20)
+                    Color(red: 0.08, green: 0.10, blue: 0.14),
+                    Color(red: 0.19, green: 0.16, blue: 0.22),
+                    Color(red: 0.36, green: 0.20, blue: 0.18),
+                    Color(red: 0.55, green: 0.32, blue: 0.18)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+            .overlay(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.88, green: 0.62, blue: 0.38).opacity(0.32),
+                        Color.clear,
+                        Color(red: 0.42, green: 0.56, blue: 0.92).opacity(0.24)
+                    ],
+                    startPoint: .topTrailing,
+                    endPoint: .bottomLeading
+                )
+            )
 
+            // Destellos suaves
             Circle()
-                .fill(.white.opacity(0.10))
-                .frame(width: 280, height: 280)
-                .blur(radius: 40)
-                .offset(x: -140, y: -120)
+                .fill(.white.opacity(0.14))
+                .frame(width: 260, height: 260)
+                .blur(radius: 55)
+                .offset(x: -120, y: -110)
+            Circle()
+                .fill(Color(red: 0.95, green: 0.72, blue: 0.44).opacity(0.18))
+                .frame(width: 320, height: 320)
+                .blur(radius: 70)
+                .offset(x: 160, y: 120)
 
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Image(systemName: "bookmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.92))
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "bookmark.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.9))
                     Text("2026")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.92))
-                    Spacer()
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 10)
+                        .background(.white.opacity(0.12))
+                        .clipShape(Capsule())
                 }
 
-                Text("Registro de vida")
-                    .font(.system(size: 30, weight: .bold, design: .serif))
-                    .foregroundStyle(.white)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Registro de vida")
+                        .font(.system(size: 32, weight: .bold, design: .serif))
+                        .foregroundStyle(.white)
 
-                Text("Escritura breve · Etiquetas · Búsqueda · Exportación")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.88))
+                    Text("Escritura breve · Etiquetas · Búsqueda · Exportación")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.86))
+                }
             }
-            .padding(18)
+            .padding(22)
         }
         .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .frame(height: 190)
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(.white.opacity(0.10), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
         )
         .padding(.horizontal)
         .padding(.top, 12)
-        .shadow(color: .black.opacity(0.10), radius: 14, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.14), radius: 18, x: 0, y: 10)
     }
 }
 
@@ -264,4 +289,3 @@ private enum SpanishDate {
         return f.string(from: date)
     }
 }
-
