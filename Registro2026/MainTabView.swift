@@ -12,6 +12,7 @@ enum AppTab: Hashable {
 }
 
 struct MainTabView: View {
+
     let autoCreateTodayOnAppear: Bool
     @State private var tab: AppTab = .hoy
 
@@ -20,43 +21,52 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            TabView(selection: $tab) {
+        TabView(selection: $tab) {
+
+            // ✅ Cada tab con su NavigationStack: toolbars y destinos estables
+            NavigationStack {
                 ContentView(autoCreateTodayOnAppear: autoCreateTodayOnAppear)
-                    .tag(AppTab.hoy)
-                    .tabItem {
-                        Image(systemName: "pencil.and.list.clipboard")
-                        Text("Hoy")
-                    }
+            }
+            .tag(AppTab.hoy)
+            .tabItem {
+                Image(systemName: "pencil.and.list.clipboard")
+                Text("Hoy")
+            }
 
+            NavigationStack {
                 CalendarView()
-                    .tag(AppTab.calendario)
-                    .tabItem {
-                        Image(systemName: "calendar")
-                        Text("Calendario")
-                    }
+            }
+            .tag(AppTab.calendario)
+            .tabItem {
+                Image(systemName: "calendar")
+                Text("Calendario")
+            }
 
+            NavigationStack {
                 TagsIndexView()
-                    .tag(AppTab.etiquetas)
-                    .tabItem {
-                        Image(systemName: "tag")
-                        Text("Etiquetas")
-                    }
+            }
+            .tag(AppTab.etiquetas)
+            .tabItem {
+                Image(systemName: "tag")
+                Text("Etiquetas")
+            }
 
+            NavigationStack {
                 StatsView()
-                    .tag(AppTab.estadisticas)
-                    .tabItem {
-                        Image(systemName: "chart.bar")
-                        Text("Estadísticas")
-                    }
+            }
+            .tag(AppTab.estadisticas)
+            .tabItem {
+                Image(systemName: "chart.bar")
+                Text("Estadísticas")
+            }
 
-                // ✅ Ajustes con navegación interna clara
+            NavigationStack {
                 SettingsView()
-                    .tag(AppTab.ajustes)
-                    .tabItem {
-                        Image(systemName: "gearshape")
-                        Text("Ajustes")
-                    }
+            }
+            .tag(AppTab.ajustes)
+            .tabItem {
+                Image(systemName: "gearshape")
+                Text("Ajustes")
             }
         }
     }

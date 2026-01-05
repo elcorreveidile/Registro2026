@@ -12,7 +12,9 @@ final class CoverStore: ObservableObject {
 
     // Imagen que usa la app (Header, preview, etc.)
     @Published private(set) var coverUIImage: UIImage? = nil
-    @Published private(set) var hasCustomCover: Bool = false
+
+    // ✅ Mejor como propiedad calculada (siempre coherente)
+    var hasCustomCover: Bool { coverUIImage != nil }
 
     // Clave donde guardamos SOLO el nombre del archivo
     private let filenameKey = "coverImageFilename"
@@ -24,7 +26,7 @@ final class CoverStore: ObservableObject {
         load()
     }
 
-    // MARK: - API pública (la que usará la UI)
+    // MARK: - API pública
 
     /// Guarda una nueva portada
     func setCover(from imageData: Data) throws {
@@ -42,33 +44,37 @@ final class CoverStore: ObservableObject {
         try ensureDirectory()
 
         let oldFilename = UserDefaults.standard.string(forKey: filenameKey)
+
         let newFilename = "cover_\(UUID().uuidString).jpg"
         let newURL = try fileURL(for: newFilename)
 
+        // ✅ Escritura atómica (segura)
         try jpegData.write(to: newURL, options: [.atomic])
 
+        // ✅ Excluir del backup (buena práctica para assets regenerables)
+        try? excludeFromBackup(newURL)
+
+        // Guardamos el nombre nuevo
         UserDefaults.standard.set(newFilename, forKey: filenameKey)
 
-        // Borramos el archivo anterior si existía
-        if let oldFilename {
-            let oldURL = try fileURL(for: oldFilename)
+        // Borramos el archivo anterior si existía (sin reventar si no está)
+        if let oldFilename, let oldURL = try? fileURL(for: oldFilename) {
             try? FileManager.default.removeItem(at: oldURL)
         }
 
+        // Actualizamos imagen en memoria
         coverUIImage = processedImage
-        hasCustomCover = true
     }
 
     /// Borra la portada personalizada
     func clear() {
-        if let filename = UserDefaults.standard.string(forKey: filenameKey) {
-            let url = try? fileURL(for: filename)
-            try? FileManager.default.removeItem(at: url!)
+        if let filename = UserDefaults.standard.string(forKey: filenameKey),
+           let url = try? fileURL(for: filename) {
+            try? FileManager.default.removeItem(at: url)
         }
 
         UserDefaults.standard.removeObject(forKey: filenameKey)
         coverUIImage = nil
-        hasCustomCover = false
     }
 
     // MARK: - Carga inicial
@@ -79,12 +85,10 @@ final class CoverStore: ObservableObject {
               let data = try? Data(contentsOf: url),
               let image = UIImage(data: data) else {
             coverUIImage = nil
-            hasCustomCover = false
             return
         }
 
         coverUIImage = image
-        hasCustomCover = true
     }
 
     // MARK: - Rutas de archivos
@@ -93,6 +97,7 @@ final class CoverStore: ObservableObject {
         let dir = try directoryURL()
         if !FileManager.default.fileExists(atPath: dir.path) {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? excludeFromBackup(dir)
         }
     }
 
@@ -103,6 +108,13 @@ final class CoverStore: ObservableObject {
 
     private func fileURL(for filename: String) throws -> URL {
         try directoryURL().appendingPathComponent(filename)
+    }
+
+    private func excludeFromBackup(_ url: URL) throws {
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var mutableURL = url
+        try mutableURL.setResourceValues(values)
     }
 
     // MARK: - Errores

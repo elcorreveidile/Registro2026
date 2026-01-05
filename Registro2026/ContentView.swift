@@ -20,6 +20,12 @@ struct ContentView: View {
     // ✅ Ventana de "Hoy": últimos N días
     private let daysVisible: Int = 14
 
+    // ✅ Abrir editor normal
+    @State private var selectedEntry: Entry? = nil
+
+    // ✅ Modo escritura sin distracciones (full screen) — ahora por sesión estable
+    @State private var focusSession: FocusSession? = nil
+
     init(autoCreateTodayOnAppear: Bool = false) {
         self.autoCreateTodayOnAppear = autoCreateTodayOnAppear
     }
@@ -29,7 +35,6 @@ struct ContentView: View {
     }
 
     private var filtered: [Entry] {
-        // ✅ Base: solo últimos N días
         let base = entries.filter { $0.date >= cutoffDate }
 
         guard !searchText.isEmpty else { return base }
@@ -60,6 +65,7 @@ struct ContentView: View {
                     } else {
                         LazyVStack(spacing: 12) {
                             ForEach(filtered) { entry in
+                                // ✅ Mantengo tu navegación directa (no usamos selectedEntry aquí)
                                 NavigationLink {
                                     EntryEditor(entry: entry)
                                 } label: {
@@ -67,6 +73,17 @@ struct ContentView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .contextMenu {
+
+                                    // ✅ Enfoque desde una entrada existente:
+                                    // crea una sesión nueva (pregunta nueva), pero estable DURANTE esa sesión
+                                    Button {
+                                        focusSession = FocusSession(entry: entry)
+                                    } label: {
+                                        Label("Escritura en enfoque", systemImage: "pencil.and.outline")
+                                    }
+
+                                    Divider()
+
                                     Button(role: .destructive) {
                                         context.delete(entry)
                                     } label: {
@@ -97,14 +114,32 @@ struct ContentView: View {
         .navigationTitle("Registro 2026")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+
+        // ✅ Editor normal: destino estable (fuera de Lazy)
+        .navigationDestination(item: $selectedEntry) { entry in
+            EntryEditor(entry: entry)
+        }
+
         .toolbar {
+
+            // ✅ Botón: abre la entrada de hoy (editor normal)
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    createTodayIfMissing()
+                    openTodayInEditor()
                 } label: {
                     Image(systemName: "square.and.pencil")
                 }
-                .accessibilityLabel("Crear entrada de hoy")
+                .accessibilityLabel("Abrir entrada de hoy")
+            }
+
+            // ✅ Botón: enfoque (hoy) — crea sesión estable
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    openFocusWriterForToday()
+                } label: {
+                    Image(systemName: "pencil.and.outline")
+                }
+                .accessibilityLabel("Escritura sin distracciones")
             }
 
             ToolbarItem(placement: .topBarTrailing) {
@@ -117,15 +152,42 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            if autoCreateTodayOnAppear { createTodayIfMissing() }
+            if autoCreateTodayOnAppear {
+                _ = ensureTodayEntry()
+            }
+        }
+
+        // ✅ FocusWriter por sesión (NO por Entry). Esto evita recreaciones raras y fija la pregunta.
+        .fullScreenCover(item: $focusSession) { session in
+            FocusWriterView(session: session)
         }
     }
 
-    private func createTodayIfMissing() {
+    // MARK: - Acciones
+
+    private func openTodayInEditor() {
+        let entry = ensureTodayEntry()
+        selectedEntry = entry
+    }
+
+    private func openFocusWriterForToday() {
+        let entry = ensureTodayEntry()
+        focusSession = FocusSession(entry: entry)
+    }
+
+    /// Devuelve la Entry de hoy (existente o nueva).
+    /// Aquí NO devolvemos Optional: así no hay pantallas en blanco.
+    private func ensureTodayEntry() -> Entry {
         let cal = Calendar.current
         let today = cal.startOfDay(for: .now)
-        if entries.contains(where: { cal.isDate($0.date, inSameDayAs: today) }) { return }
-        context.insert(Entry(date: today))
+
+        if let existing = entries.first(where: { cal.isDate($0.date, inSameDayAs: today) }) {
+            return existing
+        }
+
+        let newEntry = Entry(date: today)
+        context.insert(newEntry)
+        return newEntry
     }
 }
 
@@ -137,77 +199,95 @@ private struct HeaderCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            // Fondo degradado con matices cálidos y fríos
+
+            headerBackground
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            .black.opacity(0.05),
+                            .black.opacity(0.22),
+                            .black.opacity(0.45)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .accessibilityHidden(true)
+
+            Circle()
+                .fill(.white.opacity(0.10))
+                .frame(width: 280, height: 280)
+                .blur(radius: 40)
+                .offset(x: -140, y: -120)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: "bookmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.92))
+
+                    Text("2026")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.92))
+
+                    Spacer()
+                }
+
+                Text("Registro de vida")
+                    .font(.system(size: 30, weight: .bold, design: .serif))
+                    .foregroundStyle(.white)
+
+                Text("Escritura breve · Etiquetas · Búsqueda · Exportación")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.90))
+            }
+            .padding(.leading, 22)
+            .padding(.trailing, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 26)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 190)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+        )
+        .padding(.horizontal)
+        .padding(.top, 12)
+        .shadow(color: .black.opacity(0.10), radius: 14, x: 0, y: 8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(coverStore.hasCustomCover ? "Portada personalizada. Registro de vida 2026." : "Portada por defecto. Registro de vida 2026.")
+    }
+
+    @ViewBuilder
+    private var headerBackground: some View {
+        if let img = coverStore.coverUIImage {
+            Image(uiImage: img)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+
+        } else if UIImage(named: "HeaderImage") != nil {
+            Image("HeaderImage")
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+
+        } else {
             LinearGradient(
                 colors: [
-                    Color(red: 0.08, green: 0.10, blue: 0.14),
-                    Color(red: 0.19, green: 0.16, blue: 0.22),
-                    Color(red: 0.36, green: 0.20, blue: 0.18),
-                    Color(red: 0.55, green: 0.32, blue: 0.18)
+                    Color(red: 0.16, green: 0.18, blue: 0.22),
+                    Color(red: 0.22, green: 0.20, blue: 0.18),
+                    Color(red: 0.35, green: 0.27, blue: 0.20)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            .overlay(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.88, green: 0.62, blue: 0.38).opacity(0.32),
-                        Color.clear,
-                        Color(red: 0.42, green: 0.56, blue: 0.92).opacity(0.24)
-                    ],
-                    startPoint: .topTrailing,
-                    endPoint: .bottomLeading
-                )
-            )
-
-            // Destellos suaves
-            Circle()
-                .fill(.white.opacity(0.14))
-                .frame(width: 260, height: 260)
-                .blur(radius: 55)
-                .offset(x: -120, y: -110)
-            Circle()
-                .fill(Color(red: 0.95, green: 0.72, blue: 0.44).opacity(0.18))
-                .frame(width: 320, height: 320)
-                .blur(radius: 70)
-                .offset(x: 160, y: 120)
-
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                    Image(systemName: "bookmark.fill")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.9))
-                    Text("2026")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 10)
-                        .background(.white.opacity(0.12))
-                        .clipShape(Capsule())
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Registro de vida")
-                        .font(.system(size: 32, weight: .bold, design: .serif))
-                        .foregroundStyle(.white)
-
-                    Text("Escritura breve · Etiquetas · Búsqueda · Exportación")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.86))
-                }
-            }
-            .padding(22)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 190)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
-        )
-        .padding(.horizontal)
-        .padding(.top, 12)
-        .shadow(color: .black.opacity(0.14), radius: 18, x: 0, y: 10)
     }
 }
 
@@ -238,68 +318,3 @@ private struct EmptyStateCard: View {
     }
 }
 
-private struct EntryCardStyled: View {
-    let entry: Entry
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(SpanishDate.short(entry.date))
-                    .font(.system(size: 17, weight: .bold, design: .serif))
-
-                Spacer()
-
-                if !entry.mood.isEmpty {
-                    Text(entry.mood)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if !entry.done.isEmpty {
-                Text(entry.done)
-                    .font(.system(size: 16, weight: .semibold))
-                    .lineLimit(3)
-            } else {
-                Text("Sin “Hecho” (todavía).")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
-
-            if !entry.tags.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(entry.tags.map(\.name), id: \.self) { t in
-                            Text("#\(t)")
-                                .font(.caption)
-                                .padding(.vertical, 6)
-                                .padding(.horizontal, 10)
-                                .background(Capsule().fill(Color("AppBackground")))
-                                .overlay(Capsule().strokeBorder(Color("CardBorder"), lineWidth: 1))
-                        }
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color("CardBackground"))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color("CardBorder"), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.03), radius: 6, x: 0, y: 4)
-    }
-}
-
-private enum SpanishDate {
-    static func short(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.dateStyle = .medium
-        f.timeStyle = .none
-        return f.string(from: date)
-    }
-}

@@ -11,7 +11,11 @@ import SwiftData
 @main
 struct Registro2026App: App {
 
-    var sharedModelContainer: ModelContainer = {
+    // ✅ Creamos el store UNA sola vez para toda la app
+    @StateObject private var coverStore = CoverStore()
+
+    // ✅ SwiftData container
+    private var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Entry.self,
             Tag.self
@@ -23,9 +27,11 @@ struct Registro2026App: App {
     var body: some Scene {
         WindowGroup {
             StartView()
-                .environmentObject(coverStore)            // 👈 AQUÍ
+                .environmentObject(coverStore)                // ✅ Inyección correcta
                 .environment(\.locale, Locale(identifier: "es_ES"))
+                .preferredColorScheme(.light)
                 .modelContainer(sharedModelContainer)
         }
     }
 }
+

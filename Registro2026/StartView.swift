@@ -101,9 +101,9 @@ struct StartView: View {
             }
             .padding(.top, 30)
         }
-        // ✅ Presentación modal a pantalla completa: no hereda barras ocultas
         .fullScreenCover(isPresented: $showMain) {
             MainTabView(autoCreateTodayOnAppear: autoCreateToday)
+                .interactiveDismissDisabled(true) // ✅ evita cerrar con swipe
         }
     }
 }
