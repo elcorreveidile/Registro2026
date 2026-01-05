@@ -50,6 +50,7 @@ struct MainTabView: View {
                         Text("Estadísticas")
                     }
 
+                // ✅ Ajustes con navegación interna clara
                 SettingsView()
                     .tag(AppTab.ajustes)
                     .tabItem {
@@ -57,9 +58,6 @@ struct MainTabView: View {
                         Text("Ajustes")
                     }
             }
-            // ✅ Esto “deshace” el hidden heredado desde StartView
-            .toolbar(.visible, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
         }
     }
 }

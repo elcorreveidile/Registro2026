@@ -5,17 +5,11 @@
 //  Created by Javier Benitez on 3/1/26.
 //
 
-import SwiftUI
+import Foundation
 import SwiftData
 
 @Model
-final class Tag: Identifiable {
-    @Attribute(.unique) var name: String
-    init(name: String) { self.name = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-}
-
-@Model
-final class Entry: Identifiable {
+final class Entry {
     var date: Date
 
     var done: String
@@ -25,7 +19,9 @@ final class Entry: Identifiable {
     var mood: String
     var note: String
 
-    @Relationship(deleteRule: .nullify) var tags: [Tag] = []
+    // Many-to-many con Tag
+    @Relationship(inverse: \Tag.entries)
+    var tags: [Tag]
 
     init(date: Date = .now,
          done: String = "",
@@ -33,7 +29,8 @@ final class Entry: Identifiable {
          consumed: String = "",
          work: String = "",
          mood: String = "",
-         note: String = "") {
+         note: String = "",
+         tags: [Tag] = []) {
         self.date = date
         self.done = done
         self.thought = thought
@@ -41,6 +38,29 @@ final class Entry: Identifiable {
         self.work = work
         self.mood = mood
         self.note = note
+        self.tags = tags
     }
 }
 
+@Model
+final class Tag {
+    // ✅ Unicidad real por nombre normalizado
+    @Attribute(.unique)
+    var name: String
+
+    @Relationship
+    var entries: [Entry]
+
+    init(name: String) {
+        self.name = Tag.normalize(name)
+        self.entries = []
+    }
+
+    /// Normaliza: quita #, espacios y baja a minúsculas
+    static func normalize(_ raw: String) -> String {
+        raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "#", with: "")
+            .lowercased()
+    }
+}

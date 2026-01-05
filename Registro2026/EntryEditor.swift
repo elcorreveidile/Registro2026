@@ -10,284 +10,161 @@ import SwiftData
 
 struct EntryEditor: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
     @Bindable var entry: Entry
     @State private var tagInput = ""
+    @State private var showTagInfo = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 14) {
-                EditorHeader(date: entry.date, mood: entry.mood)
+        Form {
+            Section("Fecha") {
+                DatePicker("", selection: $entry.date, displayedComponents: .date)
+            }
 
-                CardSection(title: "Fecha", systemImage: "calendar") {
-                    DatePicker("Día", selection: $entry.date, displayedComponents: .date)
-                        .datePickerStyle(.compact)
-                }
+            Section("Registro") {
+                TextField("Hecho", text: $entry.done, axis: .vertical)
+                TextField("Pensado", text: $entry.thought, axis: .vertical)
+                TextField("Leído / visto / escuchado", text: $entry.consumed, axis: .vertical)
+                TextField("Trabajo / creación", text: $entry.work, axis: .vertical)
+                TextField("Estado de ánimo (1 palabra)", text: $entry.mood)
+                TextField("Nota suelta", text: $entry.note, axis: .vertical)
+            }
 
-                CardSection(title: "Registro", systemImage: "square.and.pencil") {
-                    LabeledField(title: "Hecho", placeholder: "Qué has hecho hoy…", text: $entry.done, isMultiline: true)
-                    LabeledField(title: "Pensado", placeholder: "Qué te ha rondado la cabeza…", text: $entry.thought, isMultiline: true)
-                    LabeledField(title: "Leído / visto / escuchado", placeholder: "Libros, series, música…", text: $entry.consumed, isMultiline: true)
-                    LabeledField(title: "Trabajo / creación", placeholder: "Qué avanzaste o creaste…", text: $entry.work, isMultiline: true)
-                    LabeledField(title: "Estado de ánimo (1 palabra)", placeholder: "sereno, eléctrico, cansado…", text: $entry.mood, isMultiline: false)
-                    LabeledField(title: "Nota suelta", placeholder: "Una frase rápida…", text: $entry.note, isMultiline: true)
-                }
-
-                CardSection(title: "Etiquetas", systemImage: "tag") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        TextField("docencia, poesía, IA…", text: $tagInput)
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        TextField("Añade: docencia, poesía, IA", text: $tagInput)
                             .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .padding(12)
-                            .background(Color(.tertiarySystemGroupedBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .autocorrectionDisabled(true)
 
-                        Button { applyTags() } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 16, weight: .bold))
-                                Text("Aplicar etiquetas")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.vertical, 12)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color(red: 0.20, green: 0.40, blue: 0.98),
-                                                Color(red: 0.55, green: 0.25, blue: 0.92),
-                                                Color(red: 0.98, green: 0.45, blue: 0.55)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                            )
+                        Button {
+                            showTagInfo = true
+                        } label: {
+                            Image(systemName: "info.circle")
                         }
+                        .buttonStyle(.plain)
+                    }
 
-                        if !entry.tags.isEmpty {
-                            TagChips(tags: entry.tags.map(\.name)) { name in
-                                entry.tags.removeAll { $0.name == name }
+                    Button("Aplicar etiquetas") {
+                        applyTags()
+                    }
+
+                    if !entry.tags.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(entry.tags) { tag in
+                                    HStack(spacing: 6) {
+                                        Text("#\(tag.name)")
+                                            .font(.caption)
+
+                                        Button {
+                                            remove(tag)
+                                        } label: {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 10)
+                                    .background(.thinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                                }
                             }
-                            .padding(.top, 4)
-                        } else {
-                            Text("Sin etiquetas todavía.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 4)
                         }
                     }
                 }
-
-                Spacer(minLength: 18)
+            } header: {
+                Text("Etiquetas")
+            } footer: {
+                Text("Se guardan normalizadas: sin #, sin espacios, en minúsculas. Así no se duplican.")
             }
-            .padding(.horizontal)
-            .padding(.top, 12)
-            .padding(.bottom, 30)
         }
-        .background(Color("AppBackground").ignoresSafeArea())
-        .navigationTitle(SpanishDate.short(entry.date))
+        .navigationTitle(entry.date.formatted(date: .abbreviated, time: .omitted))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // Botón “Listo” útil (en vez de un guardar raro)
             ToolbarItem(placement: .topBarTrailing) {
-                Button { hideKeyboard() } label: {
-                    Image(systemName: "checkmark.circle.fill")
+                Button("Listo") {
+                    dismiss()
                 }
-                .accessibilityLabel("Listo")
             }
         }
+        .alert("Cómo funcionan las etiquetas", isPresented: $showTagInfo) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Escribe separadas por coma. Se convertirán en minúsculas y se eliminará el símbolo # si lo pones. Ej.: “Poesía, #Docencia, IA”.")
+        }
     }
+
+    // MARK: - Tag logic
 
     private func applyTags() {
         let parts = tagInput
             .split(separator: ",")
-            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { String($0) }
+            .map { Tag.normalize($0) }
             .filter { !$0.isEmpty }
 
-        for p in parts {
-            let normalized = p.lowercased()
-            let fetch = FetchDescriptor<Tag>(predicate: #Predicate { $0.name == normalized })
+        guard !parts.isEmpty else {
+            tagInput = ""
+            return
+        }
 
-            if let existing = try? context.fetch(fetch).first {
-                if !entry.tags.contains(where: { $0.name == existing.name }) {
-                    entry.tags.append(existing)
-                }
-            } else {
-                let new = Tag(name: normalized)
-                context.insert(new)
-                entry.tags.append(new)
+        for name in parts {
+            let t = getOrCreateTag(named: name)
+
+            // Evita duplicar la relación en la Entry
+            if !entry.tags.contains(where: { $0.name == t.name }) {
+                entry.tags.append(t)
             }
         }
+
         tagInput = ""
+
+        // Limpieza opcional: borra tags huérfanos si los hubiera
+        deleteOrphanTagsIfAny()
     }
 
-    private func hideKeyboard() {
-        #if canImport(UIKit)
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        #endif
+    private func remove(_ tag: Tag) {
+        entry.tags.removeAll { $0.name == tag.name }
+        deleteOrphanTagsIfAny()
     }
-}
 
-// MARK: - UI Components
+    /// Devuelve un Tag único por nombre (normalizado).
+    private func getOrCreateTag(named normalizedName: String) -> Tag {
+        let fetch = FetchDescriptor<Tag>(predicate: #Predicate { $0.name == normalizedName })
 
-private struct EditorHeader: View {
-    let date: Date
-    let mood: String
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.20, green: 0.40, blue: 0.98),
-                    Color(red: 0.55, green: 0.25, blue: 0.92),
-                    Color(red: 0.98, green: 0.45, blue: 0.55)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(.white.opacity(0.18))
-                .frame(width: 220, height: 220)
-                .blur(radius: 35)
-                .offset(x: -110, y: -120)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(SpanishDate.long(date))
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-
-                if !mood.isEmpty {
-                    Text("Ánimo: \(mood)")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.92))
-                } else {
-                    Text("¿Cómo estás hoy?")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.92))
-                }
-            }
-            .padding(16)
+        if let existing = try? context.fetch(fetch).first {
+            return existing
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 140)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(.white.opacity(0.18))
-        )
-        .shadow(color: .black.opacity(0.12), radius: 18, x: 0, y: 10)
-    }
-}
 
-private struct CardSection<Content: View>: View {
-    let title: String
-    let systemImage: String
-    @ViewBuilder let content: Content
+        // Si no existe, lo creamos
+        let new = Tag(name: normalizedName)
+        context.insert(new)
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.secondary)
-
-                Text(title)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-            }
-
-            content
+        // Si hubiese conflicto de unicidad por carrera (poco común), refetch.
+        // SwiftData puede lanzar error al persistir; aquí minimizamos duplicados a nivel de UI.
+        if let existingAfterInsert = try? context.fetch(fetch).first {
+            return existingAfterInsert
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.06))
-        )
+
+        return new
     }
-}
 
-private struct LabeledField: View {
-    let title: String
-    let placeholder: String
-    @Binding var text: String
-    let isMultiline: Bool
+    /// Borra tags que ya no están enlazados a ninguna Entry.
+    /// (Evita que el “Índice temático” se llene de etiquetas fantasma.)
+    private func deleteOrphanTagsIfAny() {
+        let fetchAll = FetchDescriptor<Tag>()
+        guard let all = try? context.fetch(fetchAll) else { return }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
-
-            if isMultiline {
-                TextField(placeholder, text: $text, axis: .vertical)
-                    .lineLimit(3...10)
-                    .padding(12)
-                    .background(Color(.tertiarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            } else {
-                TextField(placeholder, text: $text)
-                    .padding(12)
-                    .background(Color(.tertiarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        for t in all {
+            if t.entries.isEmpty {
+                context.delete(t)
             }
         }
-    }
-}
-
-private struct TagChips: View {
-    let tags: [String]
-    let onRemove: (String) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(tags, id: \.self) { t in
-                    Button {
-                        onRemove(t)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text("#\(t)")
-                                .font(.caption)
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 12, weight: .bold))
-                                .opacity(0.85)
-                        }
-                        .foregroundStyle(.primary)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 10)
-                        .background(.thinMaterial)
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Spanish Date Formatter
-
-private enum SpanishDate {
-    static func short(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.dateStyle = .medium
-        f.timeStyle = .none
-        return f.string(from: date)
-    }
-
-    static func long(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.dateStyle = .full
-        f.timeStyle = .none
-        return f.string(from: date)
     }
 }
 

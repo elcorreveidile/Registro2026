@@ -17,14 +17,26 @@ struct ContentView: View {
     @Query(sort: \Entry.date, order: .reverse)
     private var entries: [Entry]
 
+    // ✅ Ventana de "Hoy": últimos N días
+    private let daysVisible: Int = 14
+
     init(autoCreateTodayOnAppear: Bool = false) {
         self.autoCreateTodayOnAppear = autoCreateTodayOnAppear
     }
 
+    private var cutoffDate: Date {
+        Calendar.current.date(byAdding: .day, value: -daysVisible, to: .now) ?? .distantPast
+    }
+
     private var filtered: [Entry] {
-        guard !searchText.isEmpty else { return entries }
+        // ✅ Base: solo últimos N días
+        let base = entries.filter { $0.date >= cutoffDate }
+
+        guard !searchText.isEmpty else { return base }
+
         let q = searchText.lowercased()
-        return entries.filter { e in
+
+        return base.filter { e in
             [e.done, e.thought, e.consumed, e.work, e.mood, e.note]
                 .joined(separator: " ")
                 .lowercased()
@@ -76,7 +88,6 @@ struct ContentView: View {
                     }
                 }
             }
-            // ✅ AQUÍ, en el ScrollView (no fuera)
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -121,6 +132,9 @@ struct ContentView: View {
 // MARK: - Header / Empty
 
 private struct HeaderCard: View {
+
+    @EnvironmentObject private var coverStore: CoverStore
+
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             // Fondo degradado con matices cálidos y fríos

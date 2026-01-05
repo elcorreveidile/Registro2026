@@ -1,3 +1,10 @@
+//
+//  Registro2026App.swift
+//  Registro2026
+//
+//  Created by Javier Benitez on 3/1/26.
+//
+
 import SwiftUI
 import SwiftData
 
@@ -16,6 +23,7 @@ struct Registro2026App: App {
     var body: some Scene {
         WindowGroup {
             StartView()
+                .environmentObject(coverStore)            // 👈 AQUÍ
                 .environment(\.locale, Locale(identifier: "es_ES"))
                 .modelContainer(sharedModelContainer)
         }

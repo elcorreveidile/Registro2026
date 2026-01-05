@@ -15,7 +15,9 @@ struct CalendarView: View {
     private var entries: [Entry]
 
     @State private var monthOffset: Int = 0
-    @State private var selectedEntry: Entry? = nil
+
+    // ✅ Navegación moderna: el path contiene valores Hashable (Date)
+    @State private var path = NavigationPath()
 
     private var calendar: Calendar { Calendar.current }
 
@@ -27,7 +29,8 @@ struct CalendarView: View {
         let f = DateFormatter()
         f.locale = Locale(identifier: "es_ES")
         f.dateFormat = "LLLL yyyy"
-        return f.string(from: monthDate).capitalized
+        // ✅ "enero 2026"
+        return f.string(from: monthDate)
     }
 
     private func startOfMonth(_ date: Date) -> Date {
@@ -46,7 +49,7 @@ struct CalendarView: View {
     private var leadingBlankDays: Int {
         let start = startOfMonth(monthDate)
         let weekday = calendar.component(.weekday, from: start)
-        // Convertimos (domingo=1...sábado=7) a (lunes=0...domingo=6)
+        // domingo=1...sábado=7  ->  lunes=0...domingo=6
         return (weekday + 5) % 7
     }
 
@@ -55,44 +58,59 @@ struct CalendarView: View {
         return entries.first(where: { calendar.isDate($0.date, inSameDayAs: d) })
     }
 
-    private func openOrCreateEntry(for day: Date) {
-        let target = calendar.startOfDay(for: day)
+    /// Devuelve la Entry de ese día, y si no existe la crea.
+    private func entryForDayOrCreate(_ date: Date) -> Entry {
+        let target = calendar.startOfDay(for: date)
 
         if let existing = entryForDay(target) {
-            selectedEntry = existing
-            return
+            return existing
         }
 
         let newEntry = Entry(date: target)
         context.insert(newEntry)
-        selectedEntry = newEntry
+        return newEntry
+    }
+
+    private func openOrCreateEntry(for day: Date) {
+        let target = calendar.startOfDay(for: day)
+
+        // Creamos si falta (así cuando naveguemos ya existe)
+        _ = entryForDayOrCreate(target)
+
+        // Navegamos usando Date (Hashable)
+        path.append(target)
     }
 
     var body: some View {
-        ZStack {
-            Color("AppBackground").ignoresSafeArea()
+        // ✅ PUNTO CLAVE: la navegación vive en ESTE NavigationStack,
+        // no como modifier "colgado" dentro de una vista que a veces está en un lazy container.
+        NavigationStack(path: $path) {
+            ZStack {
+                Color("AppBackground").ignoresSafeArea()
 
-            VStack(spacing: 12) {
-                header
-                weekdayRow
-                grid
+                VStack(spacing: 12) {
+                    header
+                    weekdayRow
+                    grid
+                }
+                .padding(.horizontal)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
             }
-            .padding(.horizontal)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-        }
-        .navigationTitle("Calendario")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $selectedEntry) { entry in
-            EntryEditor(entry: entry)
+            .navigationTitle("Calendario")
+            .navigationBarTitleDisplayMode(.inline)
+
+            // ✅ Destino moderno y estable: Date -> EntryEditor
+            .navigationDestination(for: Date.self) { day in
+                let entry = entryForDayOrCreate(day)
+                EntryEditor(entry: entry)
+            }
         }
     }
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button {
-                monthOffset -= 1
-            } label: {
+            Button { monthOffset -= 1 } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .bold))
                     .padding(10)
@@ -110,9 +128,7 @@ struct CalendarView: View {
 
             Spacer()
 
-            Button {
-                monthOffset += 1
-            } label: {
+            Button { monthOffset += 1 } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .bold))
                     .padding(10)
@@ -195,6 +211,8 @@ private struct CalendarDayCell: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(hasEntry ? "Día \(dayNumber). Con entrada." : "Día \(dayNumber). Sin entrada.")
     }
 }
 
